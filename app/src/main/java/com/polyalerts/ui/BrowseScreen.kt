@@ -1,6 +1,10 @@
 package com.polyalerts.ui
 
-import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -93,7 +98,11 @@ fun BrowseScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(categories.first()) }
     var alertFor by remember { mutableStateOf<Pair<Market, Int>?>(null) }
+    var showSaved by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+
+    // Auto-dismiss the "Alert saved" confirmation after a short beat.
+    LaunchedEffect(showSaved) { if (showSaved) { delay(1400); showSaved = false } }
 
     // Search box (debounced) drives the list. Blank query -> browse the current category.
     // Also performs the initial load (fires once with query == "").
@@ -122,6 +131,7 @@ fun BrowseScreen(vm: AppViewModel) {
             }
     }
 
+    Box(Modifier.fillMaxSize()) {
     PullToRefreshBox(
         isRefreshing = refreshing,
         onRefresh = { vm.pullRefresh() },
@@ -179,6 +189,14 @@ fun BrowseScreen(vm: AppViewModel) {
         }
     }
 
+        AnimatedVisibility(
+            visible = showSaved,
+            enter = fadeIn() + scaleIn(initialScale = 0.85f),
+            exit = fadeOut() + scaleOut(targetScale = 0.85f),
+            modifier = Modifier.align(Alignment.Center),
+        ) { SavedPopup() }
+    }
+
     alertFor?.let { (m, idx) ->
         SetAlertDialog(
             market = m,
@@ -187,9 +205,38 @@ fun BrowseScreen(vm: AppViewModel) {
             onConfirm = { rule ->
                 vm.addAlert(rule)
                 alertFor = null
-                Toast.makeText(context, "Alert saved — see the Alerts tab", Toast.LENGTH_SHORT).show()
+                showSaved = true
             },
         )
+    }
+}
+
+@Composable
+private fun SavedPopup() {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceElevated)
+            .border(1.dp, Outline, RoundedCornerShape(16.dp))
+            .padding(horizontal = 22.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = YesGreen,
+            modifier = Modifier.size(30.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                "Alert saved",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+            Text("See the Alerts tab", color = TextMuted, fontSize = 12.sp)
+        }
     }
 }
 

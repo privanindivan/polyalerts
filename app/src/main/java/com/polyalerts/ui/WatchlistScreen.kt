@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,18 +40,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
+import com.polyalerts.data.api.Market
 import com.polyalerts.data.db.AlertKind
 import com.polyalerts.data.db.AlertRule
 import com.polyalerts.data.db.Comparator
+import com.polyalerts.ui.theme.NoRed
 import com.polyalerts.ui.theme.SurfaceElevated
+import com.polyalerts.ui.theme.TextMuted
 import com.polyalerts.ui.theme.TextSecondary
+import com.polyalerts.ui.theme.YesGreen
 
 @Composable
 fun WatchlistScreen(vm: AppViewModel) {
     val rules by vm.rules.collectAsStateSafe()
+    val liveMarkets by vm.alertMarkets.collectAsStateSafe()
     val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<AlertRule?>(null) }
+
+    // Keep the live probabilities fresh while this tab is open (and re-fetch when alerts change).
+    LaunchedEffect(rules.size) {
+        vm.refreshAlertPrices()
+        while (true) {
+            delay(20_000L)
+            vm.refreshAlertPrices()
+        }
+    }
 
     val toast: (String) -> Unit = { msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
     val exportLauncher = rememberLauncherForActivityResult(
@@ -88,6 +106,7 @@ fun WatchlistScreen(vm: AppViewModel) {
             items(rules, key = { it.id }) { rule ->
                 AlertCard(
                     rule = rule,
+                    liveMarket = liveMarkets[rule.marketId],
                     onDelete = { pendingDelete = rule },
                     onOpen = { openOnPolymarket(context, "https://polymarket.com/event/${rule.slug}") },
                 )
@@ -101,7 +120,9 @@ fun WatchlistScreen(vm: AppViewModel) {
             title = { Text("Delete this alert?") },
             text = { Text("You’ll stop getting notifications for “${rule.question}”.") },
             confirmButton = {
-                TextButton(onClick = { vm.deleteAlert(rule); pendingDelete = null }) { Text("Delete") }
+                TextButton(onClick = { vm.deleteAlert(rule); pendingDelete = null }) {
+                    Text("Delete", color = NoRed)
+                }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
@@ -113,6 +134,7 @@ fun WatchlistScreen(vm: AppViewModel) {
 @Composable
 private fun AlertCard(
     rule: AlertRule,
+    liveMarket: Market?,
     onDelete: () -> Unit,
     onOpen: () -> Unit,
 ) {
@@ -124,6 +146,10 @@ private fun AlertCard(
         }
         AlertKind.MOVEMENT -> "Notify when ${rule.outcomeLabel} moves ±$cents%"
     }
+    val livePrice = liveMarket?.priceFor(rule.outcomeIndex)
+    val livePct = livePrice?.let { (it * 100).roundToInt() }
+    val reached = livePrice != null && rule.kind == AlertKind.THRESHOLD &&
+        (if (rule.comparator == Comparator.ABOVE) livePrice >= rule.target else livePrice <= rule.target)
     Card(Modifier.fillMaxWidth().clickable { onOpen() }) {
         Row(
             Modifier.fillMaxWidth().padding(12.dp),
@@ -153,6 +179,16 @@ private fun AlertCard(
                 )
                 Text("Tap to open ↗", style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(top = 2.dp))
+            }
+            // Live probability, refreshed while the tab is open.
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(horizontal = 6.dp)) {
+                Text(
+                    livePct?.let { "$it%" } ?: "—",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    color = if (reached) YesGreen else MaterialTheme.colorScheme.onSurface,
+                )
+                Text(if (reached) "reached" else "now", color = TextMuted, fontSize = 10.sp)
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete")

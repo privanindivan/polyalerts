@@ -1,0 +1,3 @@
+- The Alerts tab now shows each market's live probability, auto-refreshing while open (turns green when your target is reached).
+- Saving an alert now shows a clear animated "Alert saved" confirmation in the centre of the screen.
+- Colour polish on the Alerts tab (cleaner live %, red confirm on delete).

@@ -41,6 +41,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val rules: StateFlow<List<AlertRule>> =
         repo.observeRules().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Live market data for the markets referenced by saved alerts (Alerts tab), keyed by marketId.
+    private val _alertMarkets = MutableStateFlow<Map<String, Market>>(emptyMap())
+    val alertMarkets: StateFlow<Map<String, Market>> = _alertMarkets.asStateFlow()
+
+    /** Fetch current prices for the markets behind the saved alerts, so the Alerts tab can show
+     *  the live probability next to each target. Per-market fetch; one failure doesn't sink the rest. */
+    fun refreshAlertPrices() = viewModelScope.launch {
+        val ids = rules.value.map { it.marketId }.distinct()
+        if (ids.isEmpty()) { _alertMarkets.value = emptyMap(); return@launch }
+        val fetched = _alertMarkets.value.toMutableMap()
+        for (id in ids) runCatching { repo.market(id) }.getOrNull()?.let { fetched[id] = it }
+        _alertMarkets.value = fetched.filterKeys { it in ids }   // drop no-longer-referenced markets
+    }
+
     /** Browse a category (null = all). Resets pagination and shows the spinner. */
     fun openCategory(tagId: Int?) {
         currentTagId = tagId
