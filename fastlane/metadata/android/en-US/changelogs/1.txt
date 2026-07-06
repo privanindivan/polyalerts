@@ -1,0 +1,7 @@
+First public release.
+
+- Browse and search live Polymarket prediction markets.
+- Set price / probability alerts (notify when an outcome reaches a % you choose).
+- Set movement alerts (notify when an outcome moves by ±X%).
+- Background checks with on-device notifications; one tap opens the market on Polymarket.
+- No account, no trackers, no analytics. Alerts stored locally.
