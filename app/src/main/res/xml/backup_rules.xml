@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below (API <= 30) Auto Backup rules. Same intent: only the alerts DB. -->
+<full-backup-content>
+    <include domain="database" path="polyalerts.db" />
+    <include domain="database" path="polyalerts.db-wal" />
+</full-backup-content>

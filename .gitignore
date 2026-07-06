@@ -1,0 +1,22 @@
+# ---- Secrets: NEVER commit ----
+keystore.properties
+local.properties
+*.jks
+*.keystore
+
+# internal publishing notes (STORE-LISTING/WALKTHROUGH contain the signing password)
+play-assets/
+
+# ---- Build output ----
+build/
+app/build/
+.gradle/
+.kotlin/
+
+# ---- IDE ----
+.idea/
+*.iml
+.DS_Store
+
+# ---- Gradle ----
+.gradletasknamecache
