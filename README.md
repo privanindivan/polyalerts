@@ -1,80 +1,72 @@
 # PolyAlerts
 
-A lightweight **Android companion app for Polymarket**. It is *not* a clone of the
-exchange — it only:
+**Lightweight price & probability alerts for [Polymarket](https://polymarket.com) prediction markets.**
+Set a target, get a notification the moment a market hits it, then open the official Polymarket site with one tap. No account, no trackers — everything stays on your device.
 
-1. **Reads public market prices** from Polymarket's open Gamma API (no login, no account).
-2. Lets you set **price-threshold alerts** ("notify me when *Yes* on market X rises to ≥ 60¢").
-3. Checks prices in the background and fires a **notification** when a threshold is crossed.
-4. **Redirects you to polymarket.com** (in-app Chrome Custom Tab) to actually trade.
+> ⚠️ **Unofficial.** Independent project — not created by, endorsed by, or affiliated with Polymarket. It only shows public information and sends reminders; it does **not** place bets, hold funds, or process transactions.
 
-All the heavy Polymarket machinery — accounts, KYC, deposits/withdrawals, the order book —
-stays on the real site. This app is just alerts + a doorway.
+## ⬇️ Download
 
-## How it works
+**[Download the latest APK →](https://github.com/privanindivan/polyalerts/releases/latest)**
 
-```
-Gamma API (gamma-api.polymarket.com/markets)  ──► browse + live prices
-        │
-   set alert (Room db, local)
-        │
-   WorkManager worker every 15 min ──► compare price to your target ──► 🔔 notification
-                                                                          │
-                                                          tap ──► Custom Tab ──► polymarket.com/event/{slug}
-```
+1. Download `PolyAlerts-vX.Y.Z.apk` from the latest release.
+2. Open it on your Android phone and allow installing from this source if prompted.
+3. Open PolyAlerts, tap a market, and set an alert.
 
-A rule fires once per crossing, then re-arms automatically when the price moves back.
+Requires Android 8.0 (API 26) or newer.
 
-## Project layout
+## Screenshots
+
+<p>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="30%" alt="Browse markets" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" width="30%" alt="Set an alert" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" width="30%" alt="Your alerts" />
+</p>
+
+## Features
+
+- 🔔 **Price / probability alerts** — get notified when an outcome reaches a % you choose ("Yes rises to 60%").
+- 📉 **Movement alerts** — get notified when an outcome moves by ±X% in either direction.
+- 📊 **Live probabilities on your alerts** — the Alerts tab shows each market's current chance, auto-refreshing, and turns green when your target is reached.
+- 🔎 **Browse & search** live markets across Politics, Sports, Crypto, Economy, Tech, World, Business and Pop Culture.
+- ↗️ **One tap** opens any market on the official Polymarket site.
+- 💾 **Export / import** your alerts as a file to move them between phones.
+
+## Private by design
+
+- No account, no sign-up.
+- No ads, no trackers, no analytics.
+- Alerts are stored **only on your device**.
+
+## Notes
+
+- Alerts are checked periodically in the background; delivery timing depends on your phone's battery/power-saving settings, so they're near-real-time, not instant. Allow the app to run in the background for reliable delivery.
+- All market data comes from Polymarket's public API.
+- Prediction markets may be restricted in your region — any decision to visit Polymarket and trade is entirely your own.
+
+## Roadmap
+
+- Instant push alerts (foreground service / push backend).
+- A separate watch/bookmark list (track odds without setting an alert).
+- Mini price trend chart on each market.
+
+## Build from source
+
+1. Open the project in **Android Studio** (Ladybug or newer).
+2. Run on a device/emulator with API 26+. Grant the notification permission when asked.
+
+The app is a single-Activity Jetpack Compose app:
 
 ```
 app/src/main/java/com/polyalerts/
-├─ PolyApp.kt              Application: create notif channel + schedule worker
-├─ MainActivity.kt         single Activity, requests POST_NOTIFICATIONS, hosts Compose
-├─ data/
-│  ├─ api/                 Gamma API: Market model, GammaApi (Retrofit), Network
-│  ├─ db/                  Room: AlertRule, AlertDao, AlertDb
-│  └─ Repository.kt        single data entry point (remote markets + local rules)
-├─ alerts/
-│  ├─ Notifications.kt     notification channel + builder (tap → opens market)
-│  ├─ AlertWorker.kt       fetches prices, evaluates rules, notifies
-│  └─ AlertScheduler.kt    enqueues the 15-min periodic WorkManager job
-└─ ui/
-   ├─ AppNav.kt            bottom-nav: Markets / Alerts
-   ├─ AppViewModel.kt      state + actions
-   ├─ BrowseScreen.kt      top markets list + "Set alert" / "Open"
-   ├─ SetAlertDialog.kt    pick outcome, ≥/≤, target cents
-   ├─ WatchlistScreen.kt   manage saved alerts (toggle / delete / open)
-   └─ OpenSite.kt          Chrome Custom Tab redirect
+├─ data/    Gamma API (Retrofit) + Room (local alert rules) + Repository
+├─ alerts/  notification channel, background price-check worker, scheduler
+└─ ui/      Compose screens (Markets / Alerts), ViewModel, theme
 ```
 
-## Build & run
+## Privacy policy
 
-1. Open the `polyalerts/` folder in **Android Studio** (Ladybug or newer).
-2. Let it generate the Gradle wrapper if prompted (or run `gradle wrapper`).
-3. Run on a device/emulator with API 26+. Grant the notification permission when asked.
-4. Markets tab → pick a market → **Set alert** → choose outcome, ≥/≤, and a cents target.
-
-> Note: WorkManager's minimum periodic interval is **15 minutes**, so alerts are
-> near-real-time, not instant. For truly live alerts you'd add a foreground service
-> holding the public WebSocket — a later iteration.
-
-## Roadmap ideas (v2+)
-
-- Foreground-service WebSocket for instant alerts.
-- More alert types: % move, volume spike, new-market keyword watch, resolution reminders.
-- Search + categories on the browse screen.
-- "Watchlist" of markets (separate from alerts) with at-a-glance price changes.
-- FCM push (needs a tiny backend) so alerts work even if the device throttles WorkManager.
-
-## Legal / fair use
-
-This app only consumes Polymarket's public, unauthenticated data endpoints and deep-links
-users to the official site to trade. It stores no credentials and handles no funds. Respect
-Polymarket's Terms of Service and API rate limits; this is an unofficial companion tool.
-
-**Not affiliated with Polymarket.** Independent project; not created by, endorsed by, or
-affiliated with Polymarket. "Polymarket" is used only to describe what the app tracks.
+https://privanindivan.github.io/polyalerts-legal/
 
 ## License
 
