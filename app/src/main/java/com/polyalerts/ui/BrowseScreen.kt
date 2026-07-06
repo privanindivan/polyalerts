@@ -1,5 +1,6 @@
 package com.polyalerts.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -183,7 +184,11 @@ fun BrowseScreen(vm: AppViewModel) {
             market = m,
             initialOutcome = idx,
             onDismiss = { alertFor = null },
-            onConfirm = { rule -> vm.addAlert(rule); alertFor = null },
+            onConfirm = { rule ->
+                vm.addAlert(rule)
+                alertFor = null
+                Toast.makeText(context, "Alert saved — see the Alerts tab", Toast.LENGTH_SHORT).show()
+            },
         )
     }
 }
