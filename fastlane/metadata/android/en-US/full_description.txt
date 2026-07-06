@@ -1,0 +1,23 @@
+PolyAlerts is a lightweight, unofficial companion for following prediction markets on Polymarket. Set a target and get a notification the moment a market's price or probability reaches it — so you never have to sit and refresh a chart.
+
+PolyAlerts is an information and notification tool. It does not place bets, hold funds, or process any transactions. When you want to act on an alert, one tap opens the official Polymarket website in your browser.
+
+WHAT YOU CAN DO
+* Browse and search live prediction markets across Politics, Sports, Crypto, Economy, Tech, World, Business and Pop Culture.
+* Set a PRICE / PROBABILITY alert — get notified when an outcome reaches a % you choose (for example: "Yes rises to 60%").
+* Set a MOVEMENT alert — get notified when an outcome moves by a chosen amount in either direction (for example: "moves by ±10%").
+* See current probabilities and 24h volume at a glance.
+* Open any market on Polymarket with one tap.
+
+PRIVATE BY DESIGN
+* No account and no sign-up.
+* No ads, no trackers, no analytics.
+* Your alerts are stored only on your device.
+
+HONEST ABOUT LIMITS
+Alerts are checked periodically in the background. Delivery timing depends on your phone's battery and power-saving settings, so alerts are near-real-time, not instantaneous. If you rely on them, allow the app to run in the background in your device settings.
+
+NOT AFFILIATED WITH POLYMARKET
+PolyAlerts is an independent project. It is not created by, endorsed by, or affiliated with Polymarket. All market data comes from Polymarket's public API. "Polymarket" is used only to describe what the app tracks.
+
+Prediction markets may be restricted or unavailable in your region. PolyAlerts only displays public information and sends reminders; any decision to visit Polymarket and trade is entirely your own.
