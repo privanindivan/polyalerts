@@ -72,3 +72,12 @@ app/src/main/java/com/polyalerts/
 This app only consumes Polymarket's public, unauthenticated data endpoints and deep-links
 users to the official site to trade. It stores no credentials and handles no funds. Respect
 Polymarket's Terms of Service and API rate limits; this is an unofficial companion tool.
+
+**Not affiliated with Polymarket.** Independent project; not created by, endorsed by, or
+affiliated with Polymarket. "Polymarket" is used only to describe what the app tracks.
+
+## License
+
+Licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
+You may use, study, modify, and redistribute this software, but any distributed
+derivative must also be released under the GPL-3.0 (it must stay open source).
