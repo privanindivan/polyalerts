@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,11 +53,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlin.math.roundToInt
+import com.polyalerts.R
 import com.polyalerts.data.api.Market
 import com.polyalerts.ui.theme.BrandBlue
 import com.polyalerts.ui.theme.Gold
@@ -243,10 +247,18 @@ private fun SavedPopup() {
 @Composable
 private fun Header() {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // Same mark as the launcher icon: the white "P" foreground on the icon's blue background.
         Box(
-            Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(BrandBlue),
+            Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
+                .background(colorResource(R.color.ic_launcher_background)),
             contentAlignment = Alignment.Center,
-        ) { Text("P", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Black) }
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = "PolyAlerts",
+                modifier = Modifier.size(40.dp),
+            )
+        }
         Spacer(Modifier.width(8.dp))
         Text("PolyAlerts", fontSize = 22.sp, fontWeight = FontWeight.Black,
             color = MaterialTheme.colorScheme.onBackground)
