@@ -2,7 +2,7 @@ package com.polyalerts.ui
 
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,35 +34,52 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.google.zxing.BarcodeFormat
+import com.journeyapps.barcodescanner.BarcodeEncoder
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import com.polyalerts.data.api.Market
 import com.polyalerts.data.db.AlertKind
 import com.polyalerts.data.db.AlertRule
 import com.polyalerts.data.db.Comparator
+import com.polyalerts.data.decodeShare
+import com.polyalerts.data.encodeShare
 import com.polyalerts.ui.theme.NoRed
 import com.polyalerts.ui.theme.SurfaceElevated
 import com.polyalerts.ui.theme.TextMuted
 import com.polyalerts.ui.theme.TextSecondary
 import com.polyalerts.ui.theme.YesGreen
 
+// A generous cap so the QR stays comfortably scannable phone-to-phone.
+private const val MAX_QR_CHARS = 2000
+
 @Composable
 fun WatchlistScreen(vm: AppViewModel) {
     val rules by vm.rules.collectAsStateSafe()
     val liveMarkets by vm.alertMarkets.collectAsStateSafe()
+    val incoming by vm.incoming.collectAsStateSafe()
     val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<AlertRule?>(null) }
+    var showSend by remember { mutableStateOf(false) }
+    var qrText by remember { mutableStateOf<String?>(null) }
+
+    val toast: (String) -> Unit = { msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
 
     // Keep the live probabilities fresh while this tab is open (and re-fetch when alerts change).
     LaunchedEffect(rules.size) {
@@ -70,13 +90,20 @@ fun WatchlistScreen(vm: AppViewModel) {
         }
     }
 
-    val toast: (String) -> Unit = { msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri -> uri?.let { vm.exportRules(it, toast) } }
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { vm.importRules(it, toast) } }
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val contents = result.contents
+        if (contents != null) {
+            val shared = decodeShare(contents)
+            if (shared.isNullOrEmpty()) toast("That isn't a PolyAlerts code") else vm.prepareIncoming(shared)
+        }
+    }
+    fun startScan() = scanLauncher.launch(
+        ScanOptions()
+            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            .setPrompt("Point at a PolyAlerts code")
+            .setBeepEnabled(false)
+            .setOrientationLocked(false),
+    )
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -86,11 +113,9 @@ fun WatchlistScreen(vm: AppViewModel) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
+            TextButton(onClick = { startScan() }) { Text("Scan") }
             if (rules.isNotEmpty()) {
-                TextButton(onClick = { exportLauncher.launch("polyalerts-backup.json") }) { Text("Export") }
-            }
-            TextButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/*", "*/*")) }) {
-                Text("Import")
+                TextButton(onClick = { showSend = true }) { Text("Send") }
             }
         }
 
@@ -129,6 +154,168 @@ fun WatchlistScreen(vm: AppViewModel) {
             },
         )
     }
+
+    if (showSend) {
+        SendPickerDialog(
+            rules = rules,
+            onDismiss = { showSend = false },
+            onShowQr = { selected ->
+                val text = encodeShare(selected)
+                if (text.length > MAX_QR_CHARS) {
+                    toast("Too many for one code — select fewer")
+                } else {
+                    qrText = text
+                    showSend = false
+                }
+            },
+        )
+    }
+
+    qrText?.let { text -> QrDialog(text = text, onDismiss = { qrText = null }) }
+
+    incoming?.let { list ->
+        IncomingPreviewDialog(
+            incoming = list,
+            onCancel = { vm.cancelIncoming() },
+            onAdd = {
+                vm.confirmIncoming { n ->
+                    toast(if (n > 0) "Added $n alert(s)" else "You already have these")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun SendPickerDialog(
+    rules: List<AlertRule>,
+    onDismiss: () -> Unit,
+    onShowQr: (List<AlertRule>) -> Unit,
+) {
+    val selected = remember { mutableStateListOf<Long>() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send alerts") },
+        text = {
+            Column {
+                Text(
+                    "Pick which alerts to put in the QR code. The other phone scans it under Alerts → Scan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted,
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(rules, key = { it.id }) { rule ->
+                        val checked = rule.id in selected
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .clickable { if (checked) selected.remove(rule.id) else selected.add(rule.id) }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { c -> if (c) selected.add(rule.id) else selected.remove(rule.id) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                rule.question,
+                                maxLines = 2,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = selected.isNotEmpty(),
+                onClick = { onShowQr(rules.filter { it.id in selected }) },
+            ) { Text("Show QR (${selected.size})") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun QrDialog(text: String, onDismiss: () -> Unit) {
+    val bitmap = remember(text) {
+        runCatching { BarcodeEncoder().encodeBitmap(text, BarcodeFormat.QR_CODE, 900, 900) }.getOrNull()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Scan on the other phone") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (bitmap != null) {
+                    Box(
+                        Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).padding(10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Alerts QR code",
+                            modifier = Modifier.size(240.dp),
+                        )
+                    }
+                } else {
+                    Text("Couldn’t generate the code.", color = TextMuted)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "On the other phone: Alerts → Scan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
+@Composable
+private fun IncomingPreviewDialog(
+    incoming: List<AlertRule>,
+    onCancel: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Add ${incoming.size} alert(s)?") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(incoming, key = { "${it.marketId}|${it.outcomeIndex}|${it.kind}|${it.target}" }) { r ->
+                    val cents = (r.target * 100).toInt()
+                    val desc = when (r.kind) {
+                        AlertKind.THRESHOLD -> {
+                            val arrow = if (r.comparator == Comparator.ABOVE) "≥" else "≤"
+                            "${r.outcomeLabel} $arrow $cents%"
+                        }
+                        AlertKind.MOVEMENT -> "${r.outcomeLabel} moves ±$cents%"
+                    }
+                    Column {
+                        Text(
+                            r.question,
+                            maxLines = 2,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(desc, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onAdd) { Text("Add") } },
+        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+    )
 }
 
 @Composable

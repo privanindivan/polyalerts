@@ -23,8 +23,8 @@ android {
         applicationId = "com.polyalerts"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.1.4"
+        versionCode = 6
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -93,6 +93,9 @@ dependencies {
 
     // Async image loading for market icons
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // QR generate + scan for offline alert sharing (FOSS, Apache-2.0, no Google Play Services)
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

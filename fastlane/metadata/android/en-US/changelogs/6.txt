@@ -1,0 +1,4 @@
+- Share alerts between phones with a QR code: pick alerts → Send → Scan on the other phone. Replaces the old file export/import.
+- The Markets tab now remembers your place — scroll position, category, and search survive switching tabs.
+- The search bar and category filters stay pinned at the top instead of scrolling away.
+- New scroll-to-top button when you're deep in the list.

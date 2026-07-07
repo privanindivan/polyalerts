@@ -1,13 +1,16 @@
 package com.polyalerts.ui
 
 import android.app.Application
-import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.polyalerts.alerts.AlertScheduler
 import com.polyalerts.data.Repository
+import com.polyalerts.data.ShareRule
+import com.polyalerts.data.signature
 import com.polyalerts.data.api.Market
+import com.polyalerts.data.db.AlertKind
 import com.polyalerts.data.db.AlertRule
+import com.polyalerts.data.db.Comparator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,12 +41,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var offset = 0
     private var searchQuery = ""
 
+    /** The active search text (blank = browsing a category). Lets the UI avoid re-fetching on return. */
+    val currentSearch: String get() = searchQuery
+
+    init {
+        // Load the initial "All" browse once, when the ViewModel is created. Because the ViewModel
+        // outlives tab switches, the list is not re-fetched every time the Markets tab is reopened.
+        openCategory(null)
+    }
+
     val rules: StateFlow<List<AlertRule>> =
         repo.observeRules().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Live market data for the markets referenced by saved alerts (Alerts tab), keyed by marketId.
     private val _alertMarkets = MutableStateFlow<Map<String, Market>>(emptyMap())
     val alertMarkets: StateFlow<Map<String, Market>> = _alertMarkets.asStateFlow()
+
+    // Alerts decoded from a scanned QR, held for the user to preview before adding.
+    private val _incoming = MutableStateFlow<List<AlertRule>?>(null)
+    val incoming: StateFlow<List<AlertRule>?> = _incoming.asStateFlow()
 
     /** Fetch current prices for the markets behind the saved alerts, so the Alerts tab can show
      *  the live probability next to each target. Per-market fetch; one failure doesn't sink the rest. */
@@ -125,27 +141,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Manually trigger the price check right now (one-shot worker). */
     fun checkNow() = AlertScheduler.runOnce(getApplication())
 
-    /** Write all rules to the user-chosen file (SAF). No network — local file only. */
-    fun exportRules(uri: Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        val ok = runCatching {
-            val text = repo.exportRulesJson()
-            getApplication<Application>().contentResolver.openOutputStream(uri)?.use { out ->
-                out.write(text.toByteArray()); true
-            } ?: false
-        }.getOrDefault(false)
-        onResult(if (ok) "Alerts exported" else "Export failed")
+    /** Resolve scanned share-rules into full alerts (re-fetching each market's question/image
+     *  by marketId), and hold them for the user to preview before adding. */
+    fun prepareIncoming(shared: List<ShareRule>) = viewModelScope.launch {
+        _incoming.value = shared.map { sr ->
+            val market = runCatching { repo.market(sr.m) }.getOrNull()
+            AlertRule(
+                marketId = sr.m,
+                slug = sr.s.ifBlank { market?.slug ?: "" },
+                question = market?.question ?: sr.s.ifBlank { "Shared alert" },
+                imageUrl = market?.image,
+                outcomeIndex = sr.o,
+                outcomeLabel = sr.l,
+                kind = runCatching { AlertKind.valueOf(sr.k) }.getOrDefault(AlertKind.THRESHOLD),
+                comparator = runCatching { Comparator.valueOf(sr.c) }.getOrDefault(Comparator.ABOVE),
+                target = sr.t,
+                baselinePrice = sr.b,
+            )
+        }
     }
 
-    /** Merge rules from a user-chosen backup file (SAF). Reports how many were added. */
-    fun importRules(uri: Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        val text = runCatching {
-            getApplication<Application>().contentResolver.openInputStream(uri)
-                ?.bufferedReader()?.use { it.readText() }
-        }.getOrNull()
-        if (text.isNullOrBlank()) { onResult("Couldn’t read that file"); return@launch }
-        val n = runCatching { repo.importRulesJson(text) }.getOrNull()
-        onResult(if (n != null) "Imported $n alert(s)" else "Not a valid backup file")
+    /** Save the previewed incoming alerts, skipping ones that already exist. Reports how many were added. */
+    fun confirmIncoming(onResult: (Int) -> Unit) = viewModelScope.launch {
+        val existing = rules.value.map { it.signature() }.toHashSet()
+        var added = 0
+        _incoming.value?.forEach { r ->
+            if (existing.add(r.signature())) { repo.saveRule(r); added++ }
+        }
+        _incoming.value = null
+        onResult(added)
     }
+
+    /** Discard scanned alerts without adding them. */
+    fun cancelIncoming() { _incoming.value = null }
 
     fun addAlert(rule: AlertRule) = viewModelScope.launch { repo.saveRule(rule) }
     fun toggleAlert(rule: AlertRule) =

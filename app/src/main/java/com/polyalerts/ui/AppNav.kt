@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -40,7 +41,12 @@ fun AppNav() {
                     NavigationBarItem(
                         selected = route == dest,
                         onClick = {
-                            nav.navigate(dest) { launchSingleTop = true; popUpTo("browse") }
+                            nav.navigate(dest) {
+                                // Preserve each tab's state (scroll, list, search) across switches.
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         icon = { Icon(icons[i], contentDescription = label) },
                         label = { Text(label) },

@@ -6,9 +6,6 @@ import com.polyalerts.data.api.Network
 import com.polyalerts.data.db.AlertDao
 import com.polyalerts.data.db.AlertDb
 import com.polyalerts.data.db.AlertRule
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 /** Single entry point for data: public Gamma API + local alert rules. */
 class Repository(context: Context) {
@@ -28,25 +25,6 @@ class Repository(context: Context) {
             .flatMap { it.markets }
             .filter { !it.closed }
             .distinctBy { it.id }
-
-    // --- Backup / transfer (local file, no network) ---
-    private val backupJson = Json { ignoreUnknownKeys = true; prettyPrint = true }
-
-    /** Serialize all rules to a JSON string for the user to save/share. */
-    suspend fun exportRulesJson(): String =
-        backupJson.encodeToString(AlertBackup(rules = dao.allRules().map { it.toDto() }))
-
-    /** Merge rules from a JSON backup, skipping ones that already exist. Returns how many were added. */
-    suspend fun importRulesJson(text: String): Int {
-        val backup = backupJson.decodeFromString<AlertBackup>(text)
-        val seen = dao.allRules().map { it.signature() }.toHashSet()
-        var added = 0
-        for (dto in backup.rules) {
-            val entity = dto.toEntity()
-            if (seen.add(entity.signature())) { dao.upsert(entity); added++ }
-        }
-        return added
-    }
 
     // --- Alert rules (local) ---
     fun observeRules() = dao.observeAll()

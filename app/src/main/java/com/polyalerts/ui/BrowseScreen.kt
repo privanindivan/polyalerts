@@ -31,22 +31,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -99,23 +105,28 @@ fun BrowseScreen(vm: AppViewModel) {
     val loadingMore by vm.loadingMore.collectAsStateSafe()
     val context = LocalContext.current
 
-    var query by remember { mutableStateOf("") }
-    var selected by remember { mutableStateOf(categories.first()) }
+    // rememberSaveable so the search text and selected category survive tab switches.
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedIndex by rememberSaveable { mutableStateOf(0) }
+    val selected = categories[selectedIndex]
     var alertFor by remember { mutableStateOf<Pair<Market, Int>?>(null) }
     var showSaved by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // Show the scroll-to-top button once the user has scrolled a few cards down.
+    val showScrollTop by remember { derivedStateOf { listState.firstVisibleItemIndex >= 4 } }
 
     // Auto-dismiss the "Alert saved" confirmation after a short beat.
     LaunchedEffect(showSaved) { if (showSaved) { delay(1400); showSaved = false } }
 
-    // Search box (debounced) drives the list. Blank query -> browse the current category.
-    // Also performs the initial load (fires once with query == "").
+    // Search box (debounced) drives the list. The initial browse load happens once in the ViewModel,
+    // so this effect only reacts to the user actually changing the query — and no-ops when the query
+    // already matches what's loaded (e.g. on returning to this tab), preserving the list and scroll.
     LaunchedEffect(query) {
-        if (query.isBlank()) {
-            vm.runSearch("")
-        } else {
-            delay(350)
-            vm.runSearch(query)
+        val q = query.trim()
+        when {
+            q.isBlank() && vm.currentSearch.isNotBlank() -> vm.runSearch("") // user cleared the search
+            q.isNotBlank() && q != vm.currentSearch -> { delay(350); vm.runSearch(q) }
         }
     }
 
@@ -136,62 +147,84 @@ fun BrowseScreen(vm: AppViewModel) {
     }
 
     Box(Modifier.fillMaxSize()) {
-    PullToRefreshBox(
-        isRefreshing = refreshing,
-        onRefresh = { vm.pullRefresh() },
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item { Header() }
-            item { SearchBar(query) { query = it } }
-            item {
+        Column(Modifier.fillMaxSize()) {
+            // Pinned header — logo + search + category chips stay put while the list scrolls.
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Header()
+                SearchBar(query) { query = it }
                 CategoryChips(selected) { cat ->
                     query = ""
-                    selected = cat
+                    selectedIndex = categories.indexOf(cat)
                     vm.openCategory(cat.tagId)
                 }
             }
 
-            if (loading && markets.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = BrandBlue)
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = { vm.pullRefresh() },
+                modifier = Modifier.weight(1f),
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (loading && markets.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = BrandBlue)
+                            }
+                        }
+                    } else if (!loading && markets.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    if (query.isBlank()) "No markets in this category right now."
+                                    else "No markets match “$query”.",
+                                    color = TextMuted,
+                                )
+                            }
+                        }
                     }
-                }
-            } else if (!loading && markets.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            if (query.isBlank()) "No markets in this category right now."
-                            else "No markets match “$query”.",
-                            color = TextMuted,
+
+                    items(markets, key = { it.id }) { m ->
+                        MarketCard(
+                            market = m,
+                            onOpen = { openOnPolymarket(context, m.webUrl) },
+                            onPickOutcome = { idx -> alertFor = m to idx },
                         )
                     }
-                }
-            }
 
-            items(markets, key = { it.id }) { m ->
-                MarketCard(
-                    market = m,
-                    onOpen = { openOnPolymarket(context, m.webUrl) },
-                    onPickOutcome = { idx -> alertFor = m to idx },
-                )
-            }
-
-            if (loadingMore) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = BrandBlue, modifier = Modifier.size(24.dp))
+                    if (loadingMore) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = BrandBlue, modifier = Modifier.size(24.dp))
+                            }
+                        }
                     }
                 }
             }
         }
-    }
+
+        // Scroll-to-top button — fades in once you're a few cards deep.
+        AnimatedVisibility(
+            visible = showScrollTop,
+            enter = fadeIn() + scaleIn(initialScale = 0.7f),
+            exit = fadeOut() + scaleOut(targetScale = 0.7f),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+        ) {
+            SmallFloatingActionButton(
+                onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                containerColor = BrandBlue,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Scroll to top")
+            }
+        }
 
         AnimatedVisibility(
             visible = showSaved,
