@@ -1,0 +1,1 @@
+- Clearer QR buttons: "Scan" is now "Receive". So it's simply Send on one phone, Receive on the other.

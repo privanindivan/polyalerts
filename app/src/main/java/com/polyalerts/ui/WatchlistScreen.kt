@@ -119,7 +119,7 @@ fun WatchlistScreen(vm: AppViewModel) {
             TextButton(onClick = { startScan() }) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Scan")
+                Text("Receive")
             }
             if (rules.isNotEmpty()) {
                 TextButton(onClick = { showSend = true }) {
@@ -131,7 +131,7 @@ fun WatchlistScreen(vm: AppViewModel) {
         }
 
         Text(
-            "Copy alerts between phones with a QR code: tap Send and pick which alerts to share, then Scan that code on the other phone.",
+            "Copy alerts between phones with a QR code: on the phone with the alerts tap Send, then tap Receive on the other phone to scan the code.",
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
             modifier = Modifier.padding(top = 2.dp),
@@ -275,7 +275,7 @@ private fun QrDialog(text: String, onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Scan on the other phone") },
+        title = { Text("Receive on the other phone") },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (bitmap != null) {
@@ -294,7 +294,7 @@ private fun QrDialog(text: String, onDismiss: () -> Unit) {
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "On the other phone: Alerts → Scan.",
+                    "On the other phone: Alerts → Receive.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted,
                 )
