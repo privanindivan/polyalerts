@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -100,9 +102,10 @@ fun WatchlistScreen(vm: AppViewModel) {
     fun startScan() = scanLauncher.launch(
         ScanOptions()
             .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            .setPrompt("Point at a PolyAlerts code")
+            .setPrompt("Point at a PolyAlerts QR code")
             .setBeepEnabled(false)
-            .setOrientationLocked(false),
+            .setOrientationLocked(false)
+            .setCaptureActivity(PortraitCaptureActivity::class.java),
     )
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -113,11 +116,26 @@ fun WatchlistScreen(vm: AppViewModel) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { startScan() }) { Text("Scan") }
+            TextButton(onClick = { startScan() }) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Scan")
+            }
             if (rules.isNotEmpty()) {
-                TextButton(onClick = { showSend = true }) { Text("Send") }
+                TextButton(onClick = { showSend = true }) {
+                    Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Send")
+                }
             }
         }
+
+        Text(
+            "Copy alerts between phones with a QR code — Send shows one, Scan reads one.",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted,
+            modifier = Modifier.padding(top = 2.dp),
+        )
 
         if (rules.isEmpty()) {
             Text(

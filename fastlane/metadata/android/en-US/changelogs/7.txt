@@ -1,0 +1,2 @@
+- The QR scanner now opens in portrait instead of a sideways barcode-reader view.
+- Clearer QR sharing: the Send and Scan buttons now show QR icons, with a short note explaining what they do.
