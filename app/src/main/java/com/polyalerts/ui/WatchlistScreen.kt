@@ -132,13 +132,13 @@ fun WatchlistScreen(vm: AppViewModel) {
                 }) {
                     Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Send")
+                    Text("Show QR")
                 }
             }
         }
 
         Text(
-            "Copy alerts between phones with a QR code — Send shows a code of your alerts; Scan reads one and you pick which to add.",
+            "Copy alerts between phones with a QR code: one phone taps Show QR, the other taps Scan and picks which to add.",
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
             modifier = Modifier.padding(top = 2.dp),

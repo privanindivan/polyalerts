@@ -1,0 +1,1 @@
+- Clearer QR buttons: "Send" is now "Show QR" so it's obvious it displays a code for the other phone to scan.
