@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -79,6 +78,7 @@ fun WatchlistScreen(vm: AppViewModel) {
     val incoming by vm.incoming.collectAsStateSafe()
     val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<AlertRule?>(null) }
+    var showSend by remember { mutableStateOf(false) }
     var qrText by remember { mutableStateOf<String?>(null) }
 
     val toast: (String) -> Unit = { msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
@@ -122,23 +122,16 @@ fun WatchlistScreen(vm: AppViewModel) {
                 Text("Scan")
             }
             if (rules.isNotEmpty()) {
-                TextButton(onClick = {
-                    val text = encodeShare(rules)
-                    if (text.length > MAX_QR_CHARS) {
-                        toast("You have too many alerts to fit in one QR code")
-                    } else {
-                        qrText = text
-                    }
-                }) {
+                TextButton(onClick = { showSend = true }) {
                     Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Show QR")
+                    Text("Send")
                 }
             }
         }
 
         Text(
-            "Copy alerts between phones with a QR code: one phone taps Show QR, the other taps Scan and picks which to add.",
+            "Copy alerts between phones with a QR code: tap Send and pick which alerts to share, then Scan that code on the other phone.",
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
             modifier = Modifier.padding(top = 2.dp),
@@ -180,19 +173,99 @@ fun WatchlistScreen(vm: AppViewModel) {
         )
     }
 
+    if (showSend) {
+        SendPickerDialog(
+            rules = rules,
+            onDismiss = { showSend = false },
+            onShowQr = { selectedRules ->
+                val text = encodeShare(selectedRules)
+                if (text.length > MAX_QR_CHARS) {
+                    toast("Too many alerts for one QR — pick fewer")
+                } else {
+                    qrText = text
+                    showSend = false
+                }
+            },
+        )
+    }
+
     qrText?.let { text -> QrDialog(text = text, onDismiss = { qrText = null }) }
 
     incoming?.let { list ->
         IncomingPreviewDialog(
             incoming = list,
             onCancel = { vm.cancelIncoming() },
-            onAdd = { selected ->
-                vm.confirmIncoming(selected) { n ->
+            onAdd = {
+                vm.confirmIncoming { n ->
                     toast(if (n > 0) "Added $n alert(s)" else "You already have these")
                 }
             },
         )
     }
+}
+
+@Composable
+private fun SendPickerDialog(
+    rules: List<AlertRule>,
+    onDismiss: () -> Unit,
+    onShowQr: (List<AlertRule>) -> Unit,
+) {
+    // Everything selected by default; the sender unticks what they don't want to share.
+    val selected = remember { mutableStateListOf<Long>().apply { addAll(rules.map { it.id }) } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send alerts") },
+        text = {
+            Column {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Pick which alerts to put in the QR code.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val allSelected = selected.size == rules.size
+                    TextButton(onClick = {
+                        selected.clear()
+                        if (!allSelected) selected.addAll(rules.map { it.id })
+                    }) { Text(if (allSelected) "Deselect all" else "Select all") }
+                }
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(rules, key = { it.id }) { rule ->
+                        val checked = rule.id in selected
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .clickable { if (checked) selected.remove(rule.id) else selected.add(rule.id) }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { c -> if (c) selected.add(rule.id) else selected.remove(rule.id) },
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                rule.question,
+                                maxLines = 2,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = selected.isNotEmpty(),
+                onClick = { onShowQr(rules.filter { it.id in selected }) },
+            ) { Text("Show QR (${selected.size})") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
@@ -235,73 +308,38 @@ private fun QrDialog(text: String, onDismiss: () -> Unit) {
 private fun IncomingPreviewDialog(
     incoming: List<AlertRule>,
     onCancel: () -> Unit,
-    onAdd: (List<AlertRule>) -> Unit,
+    onAdd: () -> Unit,
 ) {
-    // Default everything checked; the person scanning chooses what to keep.
-    val selected = remember { mutableStateListOf<Int>().apply { addAll(incoming.indices) } }
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Add alerts") },
+        title = { Text("Add ${incoming.size} alert(s)?") },
         text = {
-            Column {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Choose which to add to this phone.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
-                        modifier = Modifier.weight(1f),
-                    )
-                    val allSelected = selected.size == incoming.size
-                    TextButton(onClick = {
-                        selected.clear()
-                        if (!allSelected) selected.addAll(incoming.indices)
-                    }) { Text(if (allSelected) "Deselect all" else "Select all") }
-                }
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 360.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    itemsIndexed(incoming) { i, r ->
-                        val checked = i in selected
-                        val cents = (r.target * 100).toInt()
-                        val desc = when (r.kind) {
-                            AlertKind.THRESHOLD -> {
-                                val arrow = if (r.comparator == Comparator.ABOVE) "≥" else "≤"
-                                "${r.outcomeLabel} $arrow $cents%"
-                            }
-                            AlertKind.MOVEMENT -> "${r.outcomeLabel} moves ±$cents%"
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(incoming, key = { "${it.marketId}|${it.outcomeIndex}|${it.kind}|${it.target}" }) { r ->
+                    val cents = (r.target * 100).toInt()
+                    val desc = when (r.kind) {
+                        AlertKind.THRESHOLD -> {
+                            val arrow = if (r.comparator == Comparator.ABOVE) "≥" else "≤"
+                            "${r.outcomeLabel} $arrow $cents%"
                         }
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                                .clickable { if (checked) selected.remove(i) else selected.add(i) }
-                                .padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { c -> if (c) selected.add(i) else selected.remove(i) },
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    r.question,
-                                    maxLines = 2,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(desc, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                            }
-                        }
+                        AlertKind.MOVEMENT -> "${r.outcomeLabel} moves ±$cents%"
+                    }
+                    Column {
+                        Text(
+                            r.question,
+                            maxLines = 2,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(desc, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     }
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                enabled = selected.isNotEmpty(),
-                onClick = { onAdd(incoming.filterIndexed { i, _ -> i in selected }) },
-            ) { Text("Add (${selected.size})") }
-        },
+        confirmButton = { TextButton(onClick = onAdd) { Text("Add") } },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
     )
 }

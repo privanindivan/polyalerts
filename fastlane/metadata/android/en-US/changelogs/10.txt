@@ -1,0 +1,1 @@
+- QR sharing: the sender now picks which alerts to share. Tap Send, choose alerts (with Select all), show the QR; the other phone taps Scan to receive them.
