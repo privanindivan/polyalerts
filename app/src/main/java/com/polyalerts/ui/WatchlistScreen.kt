@@ -117,13 +117,13 @@ fun WatchlistScreen(vm: AppViewModel) {
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = { startScan() }) {
-                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Receive")
             }
             if (rules.isNotEmpty()) {
                 TextButton(onClick = { showSend = true }) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Send")
                 }

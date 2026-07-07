@@ -1,0 +1,1 @@
+- Button icons now match what they do: Send shows a QR, Receive opens the scanner.
