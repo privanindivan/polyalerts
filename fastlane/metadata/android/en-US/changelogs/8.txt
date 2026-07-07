@@ -1,0 +1,2 @@
+- Notifications now use the PolyAlerts icon instead of a generic system icon.
+- QR sharing flipped: Send shows a code of your alerts, and the phone that scans chooses which ones to add.

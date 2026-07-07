@@ -161,11 +161,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Save the previewed incoming alerts, skipping ones that already exist. Reports how many were added. */
-    fun confirmIncoming(onResult: (Int) -> Unit) = viewModelScope.launch {
+    /** Save the alerts the receiver chose from a scanned code, skipping ones that already exist. */
+    fun confirmIncoming(selected: List<AlertRule>, onResult: (Int) -> Unit) = viewModelScope.launch {
         val existing = rules.value.map { it.signature() }.toHashSet()
         var added = 0
-        _incoming.value?.forEach { r ->
+        selected.forEach { r ->
             if (existing.add(r.signature())) { repo.saveRule(r); added++ }
         }
         _incoming.value = null

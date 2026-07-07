@@ -1,7 +1,11 @@
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/icon.png" width="88" alt="PolyAlerts icon" />
+</p>
+
 # PolyAlerts
 
-**Lightweight price & probability alerts for [Polymarket](https://polymarket.com) prediction markets.**
-Set a target, get a notification the moment a market hits it, then open the official Polymarket site with one tap. No account, no trackers — everything stays on your device.
+**A lightweight, private Android app for price & probability alerts on [Polymarket](https://polymarket.com) prediction markets.**
+Set a target and get a notification when a market reaches it (checked periodically in the background), then open the official Polymarket site with one tap. No account, no trackers — everything stays on your device.
 
 > ⚠️ **Unofficial.** Independent project — not created by, endorsed by, or affiliated with Polymarket. It only shows public information and sends reminders; it does **not** place bets, hold funds, or process transactions.
 
