@@ -1,0 +1,1 @@
+- Simpler alerts: just enter a target probability and PolyAlerts figures out the direction for you (rises to / falls to), with a plain-English preview of exactly when you'll be notified.

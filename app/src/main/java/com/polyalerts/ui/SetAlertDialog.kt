@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+import kotlin.math.roundToInt
 import com.polyalerts.data.api.Market
 import com.polyalerts.data.db.AlertKind
 import com.polyalerts.data.db.AlertRule
@@ -36,8 +37,9 @@ fun SetAlertDialog(
     val outcomes = market.outcomeList().ifEmpty { listOf("Yes", "No") }
     var outcomeIndex by remember { mutableIntStateOf(initialOutcome.coerceIn(0, (outcomes.size - 1).coerceAtLeast(0))) }
     var kind by remember { mutableStateOf(AlertKind.THRESHOLD) }
-    var comparator by remember { mutableStateOf(Comparator.ABOVE) }
-    val startCents = market.priceFor(outcomeIndex)?.let { (it * 100).toInt().coerceIn(1, 99) } ?: 50
+    val outcomeLabel = outcomes.getOrElse(outcomeIndex) { "Outcome" }
+    val currentCents = market.priceFor(outcomeIndex)?.let { (it * 100).roundToInt() }
+    val startCents = currentCents?.coerceIn(1, 99) ?: 50
     var centsText by remember { mutableStateOf(startCents.toString()) }
     var moveText by remember { mutableStateOf("10") }
 
@@ -67,18 +69,22 @@ fun SetAlertDialog(
                 }
 
                 if (kind == AlertKind.THRESHOLD) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = comparator == Comparator.ABOVE,
-                            onClick = { comparator = Comparator.ABOVE }, label = { Text("Rises to ≥") })
-                        FilterChip(selected = comparator == Comparator.BELOW,
-                            onClick = { comparator = Comparator.BELOW }, label = { Text("Falls to ≤") })
-                    }
                     OutlinedTextField(
                         value = centsText,
                         onValueChange = { centsText = it.filter { c -> c.isDigit() }.take(3) },
-                        label = { Text("Probability % (1–99)") },
+                        label = { Text("Target probability % (1–99)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
+                    val target = centsText.toIntOrNull()?.coerceIn(1, 99)
+                    val preview = when {
+                        target == null -> "Enter a target between 1 and 99%."
+                        currentCents != null && target < currentCents ->
+                            "Now at $currentCents%. You'll be notified when $outcomeLabel falls to $target%."
+                        currentCents != null ->
+                            "Now at $currentCents%. You'll be notified when $outcomeLabel rises to $target%."
+                        else -> "You'll be notified when $outcomeLabel reaches $target%."
+                    }
+                    Text(preview)
                 } else {
                     OutlinedTextField(
                         value = moveText,
@@ -92,9 +98,11 @@ fun SetAlertDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val outcomeLabel = outcomes.getOrElse(outcomeIndex) { "Outcome" }
                 val rule = if (kind == AlertKind.THRESHOLD) {
                     val cents = centsText.toIntOrNull()?.coerceIn(1, 99) ?: 50
+                    // Direction is inferred: below the current price = "falls to", otherwise "rises to".
+                    val comparator = if (currentCents != null && cents < currentCents)
+                        Comparator.BELOW else Comparator.ABOVE
                     AlertRule(
                         marketId = market.id,
                         slug = market.slug ?: "",
