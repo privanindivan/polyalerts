@@ -34,7 +34,7 @@ Requires Android 8.0 (API 26) or newer.
 - 📊 **Live probabilities on your alerts** — the Alerts tab shows each market's current chance, auto-refreshing, and turns green when your target is reached.
 - 🔎 **Browse & search** live markets across Politics, Sports, Crypto, Economy, Tech, World, Business and Pop Culture.
 - ↗️ **One tap** opens any market on the official Polymarket site.
-- 💾 **Export / import** your alerts as a file to move them between phones.
+- 💾 **Export / import** your alerts via QR code to move them between phones — no file, no cloud.
 
 ## Private by design
 
