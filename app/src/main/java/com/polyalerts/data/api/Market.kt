@@ -39,6 +39,9 @@ data class Market(
     fun outcomeList(): List<String> = parseStringArray(outcomes)
     fun priceList(): List<Double> = parseStringArray(outcomePrices).mapNotNull { it.toDoubleOrNull() }
 
+    /** Total traded volume as a number (0 for untraded placeholder markets). */
+    fun volumeValue(): Double = volume?.toDoubleOrNull() ?: 0.0
+
     /** Current price (0..1) for the given outcome index, or null. */
     fun priceFor(outcomeIndex: Int): Double? = priceList().getOrNull(outcomeIndex)
 

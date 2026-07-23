@@ -19,12 +19,18 @@ class Repository(context: Context) {
 
     suspend fun market(id: String): Market = api.market(id)
 
-    /** Server-side search: flatten the events' nested markets, drop closed, de-dupe. */
+    /**
+     * Server-side search: flatten the events' nested markets, drop closed and untraded
+     * placeholder markets (e.g. "Will Party O win…" with $0 volume), de-dupe, and sort
+     * real markets to the top by traded volume.
+     */
     suspend fun search(query: String): List<Market> =
         api.search(query).events
-            .flatMap { it.markets }
             .filter { !it.closed }
+            .flatMap { it.markets }
+            .filter { !it.closed && it.volumeValue() > 0.0 }
             .distinctBy { it.id }
+            .sortedByDescending { it.volumeValue() }
 
     // --- Alert rules (local) ---
     fun observeRules() = dao.observeAll()
